@@ -1,21 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 
-interface Star {
+interface Particle {
   x: number;
   y: number;
-  z: number;
+  vx: number;
+  vy: number;
   size: number;
-  brightness: number;
-  twinkleSpeed: number;
-}
-
-interface ShootingStar {
-  x: number;
-  y: number;
-  length: number;
-  speed: number;
-  angle: number;
-  life: number;
 }
 
 const StarBackground: React.FC = () => {
@@ -32,106 +22,74 @@ const StarBackground: React.FC = () => {
     canvas.width = width;
     canvas.height = height;
 
-    const stars: Star[] = [];
-    const numStars = 1500; // Increased star count
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const focalLength = width * 0.8;
-    
-    let shootingStars: ShootingStar[] = [];
+    // Configuration for "Geometric Lines"
+    const particleCount = Math.min(100, (width * height) / 8000); // Responsive count
+    const connectionDistance = 120;
+    const particles: Particle[] = [];
 
-    // Initialize stars
-    for (let i = 0; i < numStars; i++) {
-      stars.push({
-        x: (Math.random() - 0.5) * width * 3,
-        y: (Math.random() - 0.5) * height * 3,
-        z: Math.random() * width,
-        size: Math.random() * 1.5,
-        brightness: Math.random(),
-        twinkleSpeed: 0.02 + Math.random() * 0.05
+    // Initialize particles
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        size: Math.random() * 2 + 1,
       });
     }
 
     let animationFrameId: number;
-    let time = 0;
+    let hue = 210; // Blue base
 
     const render = () => {
-      time += 0.01;
-      // Draw background with slight transparency for trail effect (optional, here we use solid clear to keep it crisp)
-      // A radial gradient simulates the "Nebula" depth
-      const gradient = ctx.createRadialGradient(centerX, centerY, height * 0.2, centerX, centerY, height * 1.5);
-      gradient.addColorStop(0, '#1e293b'); // Slate-800 center
-      gradient.addColorStop(1, '#020617'); // Slate-950 edges
+      // 1. Clear with trail effect
+      // Use a dark slate blueish gradient for the base
+      const gradient = ctx.createLinearGradient(0, 0, width, height);
+      gradient.addColorStop(0, '#0f172a'); // Slate-900
+      gradient.addColorStop(1, '#020617'); // Slate-950
+      
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
+      
+      // Update Hue slightly for dynamic color feeling
+      hue = (hue + 0.05) % 360;
 
-      // Render Stars
-      stars.forEach((star) => {
-        // Move star closer
-        star.z -= 0.5; // Slower, majestic movement
+      // 2. Update and Draw Particles
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        
+        // Move
+        p.x += p.vx;
+        p.y += p.vy;
 
-        // Reset if passed screen
-        if (star.z <= 0) {
-          star.x = (Math.random() - 0.5) * width * 3;
-          star.y = (Math.random() - 0.5) * height * 3;
-          star.z = width;
-          star.brightness = Math.random();
+        // Bounce edges
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
+
+        // Draw Particle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue}, 70%, 70%, 0.8)`;
+        ctx.fill();
+
+        // 3. Connect Lines
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < connectionDistance) {
+            const opacity = 1 - (dist / connectionDistance);
+            ctx.beginPath();
+            ctx.strokeStyle = `hsla(${hue}, 50%, 60%, ${opacity * 0.4})`;
+            ctx.lineWidth = 1;
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
         }
-
-        // Project 3D to 2D
-        const x2d = (star.x / star.z) * focalLength + centerX;
-        const y2d = (star.y / star.z) * focalLength + centerY;
-        const size2d = (1 - star.z / width) * 2.5;
-
-        if (x2d >= 0 && x2d <= width && y2d >= 0 && y2d <= height) {
-          // Twinkle effect
-          const twinkle = Math.sin(time * 10 + star.twinkleSpeed * 100) * 0.3 + 0.7;
-          const alpha = (1 - star.z / width) * star.brightness * twinkle;
-          
-          ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-          ctx.beginPath();
-          ctx.arc(x2d, y2d, Math.max(0.1, size2d), 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-
-      // Spawn Shooting Stars randomly
-      if (Math.random() < 0.02) {
-         shootingStars.push({
-           x: Math.random() * width,
-           y: Math.random() * height * 0.5,
-           length: 50 + Math.random() * 100,
-           speed: 15 + Math.random() * 10,
-           angle: Math.PI / 4 + (Math.random() - 0.5) * 0.2,
-           life: 1.0
-         });
       }
-
-      // Render Shooting Stars
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      shootingStars.forEach((star, index) => {
-        star.x += Math.cos(star.angle) * star.speed;
-        star.y += Math.sin(star.angle) * star.speed;
-        star.life -= 0.02;
-
-        if (star.life <= 0) {
-          shootingStars.splice(index, 1);
-        } else {
-          const tailX = star.x - Math.cos(star.angle) * star.length;
-          const tailY = star.y - Math.sin(star.angle) * star.length;
-
-          const grad = ctx.createLinearGradient(star.x, star.y, tailX, tailY);
-          grad.addColorStop(0, `rgba(100, 200, 255, ${star.life})`);
-          grad.addColorStop(1, `rgba(100, 200, 255, 0)`);
-
-          ctx.strokeStyle = grad;
-          ctx.beginPath();
-          ctx.moveTo(star.x, star.y);
-          ctx.lineTo(tailX, tailY);
-          ctx.stroke();
-        }
-      });
 
       animationFrameId = requestAnimationFrame(render);
     };
@@ -143,6 +101,8 @@ const StarBackground: React.FC = () => {
       height = window.innerHeight;
       canvas.width = width;
       canvas.height = height;
+      
+      // Re-init particles on drastic resize if needed, or just let them float
     };
 
     window.addEventListener('resize', handleResize);

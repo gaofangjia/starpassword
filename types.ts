@@ -2,7 +2,8 @@ export enum GeneratorMode {
   CUSTOM = 'CUSTOM',
   PIN = 'PIN',
   UUID = 'UUID',
-  MAC = 'MAC'
+  MAC = 'MAC',
+  TWO_FA = 'TWO_FA'
 }
 
 export interface PasswordConfig {
