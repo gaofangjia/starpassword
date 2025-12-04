@@ -1,0 +1,5 @@
+{
+  "name": "NebulaKey",
+  "description": "一个极具未来感的星空主题密码生成器，支持PIN码、UUID、自定义字符以及MAC地址生成，具备熵值分析和声效反馈。",
+  "requestFramePermissions": []
+}
